@@ -1,40 +1,26 @@
 package spr;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.eclipse.jetty.websocket.api.Session;
 import org.eclipse.jetty.websocket.api.WebSocketAdapter;
 
-import javax.servlet.http.Cookie;
-import java.net.HttpCookie;
-import java.util.Map;
-import java.util.WeakHashMap;
-import java.util.concurrent.ConcurrentHashMap;
-
-class GameSession {
-
-}
 public class EventSocket extends WebSocketAdapter
 {
-    private static final ConcurrentHashMap<String,GameSession> sessions = new ConcurrentHashMap<String,GameSession>();
-
-    private String id;
+    private MessageHandler mh = new MessageHandler();
 
     @Override
     public void onWebSocketConnect(Session sess)
     {
         super.onWebSocketConnect(sess);
-        for (HttpCookie c:sess.getUpgradeRequest().getCookies()){
-            if (c.getName().equals("spr")){
-                // TODO check for existing game
-                sessions.put(id=c.getValue(),new GameSession());
-            }
-        }
-        System.out.println("Socket Connected: " + sess);
     }
     
     @Override
     public void onWebSocketText(String message)
     {
         super.onWebSocketText(message);
+        mh.handleMessage(message, this);
         System.out.println("Received TEXT message: " + message);
     }
     
@@ -42,7 +28,8 @@ public class EventSocket extends WebSocketAdapter
     public void onWebSocketClose(int statusCode, String reason)
     {
         super.onWebSocketClose(statusCode,reason);
-        System.out.println("Socket Closed: [" + statusCode + "] " + reason);
+        System.out.println("Socket Closed: [" + statusCode + "] " + reason+ ' ' + this);
+        mh.remove(this);
     }
     
     @Override
@@ -50,5 +37,6 @@ public class EventSocket extends WebSocketAdapter
     {
         super.onWebSocketError(cause);
         cause.printStackTrace(System.err);
+        mh.remove(this);
     }
 }
