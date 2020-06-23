@@ -58,7 +58,7 @@ public class MessageHandler {
 
     private synchronized PlayerState findByName(String name) {
         for (PlayerState s : sessions.values()) {
-            if (s.name.equals(name))
+            if (s.name!=null && s.name.equals(name))
                 return s;
         }
         return null;
@@ -82,12 +82,16 @@ public class MessageHandler {
             case "login":
                 String name = msg.get("name").asText();
                 PlayerState gs = getState(socket);
-                if (gs != null) {
-                    gs = this.findByName(name);
-                    if (gs != null)
+                if (name.equals(gs.name))
+                    gs.sendMessage("{\"type\":\"logged_in\"}");
+                else {
+                    PlayerState gs2 = this.findByName(name);
+                    if (gs2 != null)
                         gs.sendMessage(createError("Name already taken!").toPrettyString());
-                    else
-                        gs.name=name;
+                    else {
+                        gs.name = name;
+                        gs.sendMessage("{\"type\":\"logged_in\"}");
+                    }
                 }
                 broadcastPlayerListMessage();
         }
@@ -110,6 +114,7 @@ public class MessageHandler {
                 sessions.put(socket, gs);
             }
         }
+        gs.sendMessage(makePlayerListMessage().toPrettyString());
     }
     private ObjectNode makePlayerListMessage() {
         ObjectNode on = om.createObjectNode();
@@ -117,7 +122,8 @@ public class MessageHandler {
         ArrayNode an = on.putArray("players");
         synchronized (sessions) {
             for (PlayerState ps : sessions.values()) {
-                an.add(ps.name);
+                if (ps.name!=null)
+                    an.add(ps.name);
             }
         }
         return on;
