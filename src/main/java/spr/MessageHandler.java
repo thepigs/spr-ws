@@ -1,6 +1,7 @@
 package spr;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -17,6 +18,8 @@ public class MessageHandler {
     private class PlayerState implements WriteCallback {
         public String name;
         private final EventSocket socket;
+        public PlayerState versus;
+        public String selected;
 
         public PlayerState( EventSocket socket) {
             this.socket = socket;
@@ -94,9 +97,54 @@ public class MessageHandler {
                     }
                 }
                 broadcastPlayerListMessage();
+                break;
+            case "battle_invite":
+                name = msg.get("name").asText();
+                PlayerState me = getState(socket);
+                PlayerState them = findByName(name);
+                if (them==null){
+                    me.sendMessage(createError("User has gone!").toPrettyString());
+                    return;
+                }
+                them.sendMessage(createObject(new String[][] {{"type","battle_invite"},{"name",me.name}}).toPrettyString());
+                break;
+            case "battle_rsvp":
+                name = msg.get("name").asText();
+                String action = msg.get("action").asText();
+                me = getState(socket);
+                them = findByName(name);
+                if (them==null){
+                    me.sendMessage(createError("User has gone!").toPrettyString());
+                    return;
+                }
+                synchronized(sessions) {
+                them.versus = me;
+                me.versus = them;
+                        them.sendMessage(createObject(new String[][]{{"type", "battle_start"}, {"name", me.name}}).toPrettyString());
+                me.sendMessage(createObject(new String[][]{{"type", "battle_start"}, {"name", them.name}}).toPrettyString());
+                }
+
+                break;
+            case "battle_select":
+                me = getState(socket);
+                synchronized (sessions) {
+                    me.selected = msg.get("selected").asText();
+                    if (me.versus.selected!=null){
+                        me.versus.sendMessage(createObject(new String[][]{{"type", "battle_over"}, {"selected", me.selected}}).toPrettyString());
+                        me.sendMessage(createObject(new String[][]{{"type", "battle_over"}, {"selected", me.versus.selected}}).toPrettyString());
+
+                    }
+                }
         }
     }
 
+    private ObjectNode createObject(String[][] parms){
+        ObjectNode on = om.createObjectNode();
+        for (String[] p:parms){
+            on.put(p[0],p[1]);
+        }
+        return on;
+    }
     private void broadcastMessage(String message) {
         synchronized (sessions) {
             for (PlayerState ps : sessions.values()) {
