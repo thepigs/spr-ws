@@ -11,9 +11,9 @@ public class EventSocket extends WebSocketAdapter
     private MessageHandler mh = new MessageHandler();
 
     @Override
-    public void onWebSocketConnect(Session sess)
-    {
+    public void onWebSocketConnect(Session sess) {
         super.onWebSocketConnect(sess);
+        mh.connect(this);
     }
     
     @Override
