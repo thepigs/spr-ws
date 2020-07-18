@@ -21,7 +21,7 @@ public class MessageHandler {
         public PlayerState versus;
         public String selected;
 
-        public PlayerState( EventSocket socket) {
+        public PlayerState(EventSocket socket) {
             this.socket = socket;
         }
 
@@ -33,6 +33,8 @@ public class MessageHandler {
                 outgoing.add(message);
                 return;
             }
+            System.out.println("Sending: " + message);
+
             socket.getRemote().sendString(message, this);
         }
 
@@ -61,7 +63,7 @@ public class MessageHandler {
 
     private synchronized PlayerState findByName(String name) {
         for (PlayerState s : sessions.values()) {
-            if (s.name!=null && s.name.equals(name))
+            if (s.name != null && s.name.equals(name))
                 return s;
         }
         return null;
@@ -102,26 +104,26 @@ public class MessageHandler {
                 name = msg.get("name").asText();
                 PlayerState me = getState(socket);
                 PlayerState them = findByName(name);
-                if (them==null){
+                if (them == null) {
                     me.sendMessage(createError("User has gone!").toPrettyString());
                     return;
                 }
-                them.sendMessage(createObject(new String[][] {{"type","battle_invite"},{"name",me.name}}).toPrettyString());
+                them.sendMessage(createObject(new String[][]{{"type", "battle_invite"}, {"name", me.name}, {"text", msg.get("text").asText()}}).toPrettyString());
                 break;
             case "battle_rsvp":
                 name = msg.get("name").asText();
                 String action = msg.get("action").asText();
                 me = getState(socket);
                 them = findByName(name);
-                if (them==null){
+                if (them == null) {
                     me.sendMessage(createError("User has gone!").toPrettyString());
                     return;
                 }
-                synchronized(sessions) {
-                them.versus = me;
-                me.versus = them;
-                        them.sendMessage(createObject(new String[][]{{"type", "battle_start"}, {"name", me.name}}).toPrettyString());
-                me.sendMessage(createObject(new String[][]{{"type", "battle_start"}, {"name", them.name}}).toPrettyString());
+                synchronized (sessions) {
+                    them.versus = me;
+                    me.versus = them;
+                    them.sendMessage(createObject(new String[][]{{"type", "battle_start"}, {"name", me.name}}).toPrettyString());
+                    me.sendMessage(createObject(new String[][]{{"type", "battle_start"}, {"name", them.name}}).toPrettyString());
                 }
 
                 break;
@@ -129,26 +131,25 @@ public class MessageHandler {
                 me = getState(socket);
                 synchronized (sessions) {
                     me.selected = msg.get("selected").asText();
-                    if (me.versus.selected!=null){
+                    if (me.versus.selected != null) {
                         me.versus.sendMessage(createObject(new String[][]{{"type", "battle_over"}, {"selected", me.selected}}).toPrettyString());
                         me.sendMessage(createObject(new String[][]{{"type", "battle_over"}, {"selected", me.versus.selected}}).toPrettyString());
-
                     }
                 }
         }
     }
 
-    private ObjectNode createObject(String[][] parms){
+    private ObjectNode createObject(String[][] parms) {
         ObjectNode on = om.createObjectNode();
-        for (String[] p:parms){
-            on.put(p[0],p[1]);
+        for (String[] p : parms) {
+            on.put(p[0], p[1]);
         }
         return on;
     }
+
     private void broadcastMessage(String message) {
         synchronized (sessions) {
             for (PlayerState ps : sessions.values()) {
-                System.out.println("sending: " + message);
                 ps.sendMessage(message);
             }
         }
@@ -157,20 +158,21 @@ public class MessageHandler {
     public void connect(EventSocket socket) {
         PlayerState gs = getState(socket);
         if (gs == null) {
-            synchronized(sessions) {
+            synchronized (sessions) {
                 gs = new PlayerState(socket);
                 sessions.put(socket, gs);
             }
         }
         gs.sendMessage(makePlayerListMessage().toPrettyString());
     }
+
     private ObjectNode makePlayerListMessage() {
         ObjectNode on = om.createObjectNode();
         on.put("type", "player_list");
         ArrayNode an = on.putArray("players");
         synchronized (sessions) {
             for (PlayerState ps : sessions.values()) {
-                if (ps.name!=null)
+                if (ps.name != null)
                     an.add(ps.name);
             }
         }
